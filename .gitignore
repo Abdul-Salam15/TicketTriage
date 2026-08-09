@@ -1,0 +1,10 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+venv/
+.env
+.env.*
+tickets.db
+*.log
+.DS_Store
