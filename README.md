@@ -260,7 +260,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example venv/.env  # then edit venv/.env and add your OPENAI_API_KEY
+cp .env.example .env  # then edit .env and add your OPENAI_API_KEY
 uvicorn main:app --reload --port 8000
 ```
 
@@ -271,6 +271,7 @@ The backend runs at `http://localhost:8000`. Interactive API docs are at `http:/
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local   # sets NEXT_PUBLIC_API_URL
 npm run dev
 ```
 
@@ -278,7 +279,7 @@ The frontend runs at `http://localhost:3000`.
 
 ### 4. Environment Variables
 
-Create `backend/venv/.env` (or wherever `python-dotenv` finds it):
+Create `backend/.env`:
 
 ```
 LLM_PROVIDER=openai
@@ -348,10 +349,10 @@ This is a working prototype. Here's what I'd address before deploying to real us
 | Session tokens | No expiry | Add TTL (e.g., 24h) + refresh tokens |
 | Database | SQLite | PostgreSQL with connection pooling |
 | Rate limiting | In-memory, per-ticket only | Redis-backed, per-user global rate limit |
-| CORS | Hardcoded localhost origins | Environment-configurable, locked to production domain |
+| CORS | Configurable via `CORS_ORIGINS` env var | Locked to the production domain |
 | Error handling | Basic try/catch | Structured logging (structlog), Sentry integration |
 | LLM fallback | Single provider | Circuit breaker pattern with provider failover |
-| Testing | Manual test script only | pytest for backend, Jest for frontend |
+| Testing | pytest smoke suite for auth + ticket flow | Full coverage with Jest for frontend |
 | Monitoring | None | OpenTelemetry traces + metrics |
 | Deployment | Docker Compose | Kubernetes / ECS for production |
 
@@ -371,11 +372,7 @@ The `status` column exists but is always "open." I'd add state transitions (`ope
 
 Filter tickets by category, priority, status, or full-text search across subject/description. Essential once a user has more than ~20 tickets.
 
-**4. Analytics Charts**
-
-Visual dashboard with recharts or Chart.js for category/priority distributions. The data is already there via `/analytics`, it just needs rendering.
-
-**5. Email Notifications**
+**4. Email Notifications**
 
 Notify users when their ticket gets a reply or when status changes. Would use a task queue (Celery + Redis) to send emails asynchronously.
 

@@ -1,17 +1,24 @@
 import os
+from functools import lru_cache
+
+from llm.base import LLMProvider
 from llm.openai_provider import OpenAIProvider
 from llm.anthropic_provider import AnthropicProvider
 from llm.gemini_provider import GeminiProvider
 
 
-def get_llm_provider():
-    provider_name = os.getenv("LLM_PROVIDER", "openai").lower()
-
+@lru_cache(maxsize=None)
+def _build_provider(provider_name: str) -> LLMProvider:
+    # cached so the underlying SDK client (and its HTTP connection pool)
+    # is created once per provider, not once per request
     if provider_name == "openai":
         return OpenAIProvider()
-    elif provider_name == "anthropic":
+    if provider_name == "anthropic":
         return AnthropicProvider()
-    elif provider_name == "gemini":
+    if provider_name == "gemini":
         return GeminiProvider()
-    else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {provider_name}")
+    raise ValueError(f"Unknown LLM_PROVIDER: {provider_name}")
+
+
+def get_llm_provider() -> LLMProvider:
+    return _build_provider(os.getenv("LLM_PROVIDER", "openai").lower())

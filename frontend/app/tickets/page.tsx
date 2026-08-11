@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
+import type { Ticket, AnalyticsData } from "../lib/types";
 
 const priorityClass: Record<string, string> = {
   High: "badge-high",
@@ -8,44 +10,60 @@ const priorityClass: Record<string, string> = {
   Low: "badge-low",
 };
 
-async function getTickets(token: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, {
-    cache: "no-store",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to load tickets");
-  return res.json();
-}
+const barClass: Record<string, string> = {
+  High: "bar-high",
+  Med: "bar-med",
+  Low: "bar-low",
+};
 
-async function getAnalytics(token: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analytics`, {
-    cache: "no-store",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to load analytics");
-  return res.json();
-}
+function BarChart({ counts, colorByKey = false }: { counts: Record<string, number>; colorByKey?: boolean }) {
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    return <p className="chart-empty">No tickets yet.</p>;
+  }
 
-interface AnalyticsData {
-  category_counts: Record<string, number>;
-  priority_counts: Record<string, number>;
+  const max = Math.max(...entries.map(([, count]) => count));
+  const yMax = Math.max(max, 1);
+  const gridCount = Math.min(yMax, 5);
+
+  return (
+    <div className="chart-container">
+      <div className="chart-graph">
+        <div className="chart-gridlines">
+          {Array.from({ length: gridCount }, (_, i) => (
+            <div key={i} className="chart-gridline" />
+          ))}
+        </div>
+        {entries.map(([label, count]) => (
+          <div key={label} className="chart-bar-wrapper">
+            <span className="chart-bar-count">{count}</span>
+            <div className="chart-bar-track">
+              <div
+                className={`chart-bar ${colorByKey ? barClass[label] ?? "" : ""}`}
+                style={{ height: `${Math.round((count / yMax) * 100)}%` }}
+                role="img"
+                aria-label={`${label}: ${count} ticket${count === 1 ? "" : "s"}`}
+              />
+            </div>
+            <span className="chart-bar-label">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function TicketsPage() {
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? window.localStorage.getItem("tt_token") : null;
-    if (!token) {
-      setError("Please login to view your tickets.");
-      setLoading(false);
-      return;
-    }
-
-    Promise.all([getTickets(token), getAnalytics(token)])
+    Promise.all([
+      apiFetch<Ticket[]>("/tickets"),
+      apiFetch<AnalyticsData>("/analytics"),
+    ])
       .then(([ticketsData, analyticsData]) => {
         setTickets(ticketsData);
         setAnalytics(analyticsData);
@@ -62,6 +80,10 @@ export default function TicketsPage() {
     return <section className="section"><div className="alert-error">{error}</div></section>;
   }
 
+  if (!analytics) {
+    return <section className="section"><div className="alert-error">Unable to load analytics.</div></section>;
+  }
+
   return (
     <section className="section">
       <div className="section-header">
@@ -74,38 +96,24 @@ export default function TicketsPage() {
       <div className="analytics-grid">
         <div className="analytics-card">
           <h2>Tickets by Category</h2>
-          <ul>
-            {Object.entries(analytics.category_counts).map(([category, count]) => (
-              <li key={category} className="analytics-row">
-                <strong>{category}</strong>
-                <span>{count}</span>
-              </li>
-            ))}
-          </ul>
+          <BarChart counts={analytics.category_counts} />
         </div>
 
         <div className="analytics-card">
           <h2>Tickets by Priority</h2>
-          <ul>
-            {Object.entries(analytics.priority_counts).map(([priority, count]) => (
-              <li key={priority} className="analytics-row">
-                <strong>{priority}</strong>
-                <span>{count}</span>
-              </li>
-            ))}
-          </ul>
+          <BarChart counts={analytics.priority_counts} colorByKey />
         </div>
       </div>
 
       <div className="ticket-list">
-        {tickets.map((ticket: any) => (
+        {tickets.map((ticket) => (
           <a key={ticket.id} href={`/tickets/${ticket.id}`} className="ticket-card">
             <div className="ticket-header">
               <div>
                 <p className="ticket-title">{ticket.subject}</p>
                 <p className="ticket-meta">{ticket.ticket_code} · {ticket.category} · {ticket.status} · {new Date(ticket.created_at).toLocaleString()}</p>
               </div>
-              <span className={`badge ${priorityClass[ticket.priority] || "badge-low"}`}>
+              <span className={`badge ${priorityClass[ticket.priority ?? ""] || "badge-low"}`}>
                 {ticket.priority}
               </span>
             </div>

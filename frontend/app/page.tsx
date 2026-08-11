@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "./lib/api";
+import type { Ticket } from "./lib/types";
 
 export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -32,21 +34,11 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets`, {
+      const ticket = await apiFetch<Ticket>("/tickets", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ subject, description }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Something went wrong");
-      }
-
-      const ticket = await res.json();
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem("ticketSubmitted", String(ticket.id));
       }

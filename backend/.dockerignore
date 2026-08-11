@@ -3,3 +3,5 @@ __pycache__
 venv
 .env
 tickets.db
+*.md
+AI_Engineer_Intern_Assignment.pdf

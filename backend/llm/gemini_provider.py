@@ -3,6 +3,7 @@ import json
 import asyncio
 from google import genai
 from google.genai import types
+from google.genai import errors as genai_errors
 from llm.base import LLMProvider
 from llm.prompts import SYSTEM_PROMPT, build_user_prompt
 from schemas import TriageResult
@@ -57,8 +58,12 @@ class GeminiProvider(LLMProvider):
                 data = json.loads(raw)
                 return TriageResult(**data)
 
-            except (json.JSONDecodeError, ValueError, Exception) as e:
+            except (json.JSONDecodeError, ValueError, genai_errors.APIError) as e:
                 last_error = e
+                # ClientError = 4xx (bad key, quota, bad request) — retrying can't help,
+                # so fail fast instead of burning 4.5s of backoff
+                if isinstance(e, genai_errors.ClientError):
+                    break
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(1.5 * (attempt + 1))
                     continue

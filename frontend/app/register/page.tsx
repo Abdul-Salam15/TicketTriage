@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "../lib/api";
 
 interface PasswordRule {
   label: string;
@@ -14,6 +15,10 @@ const rules: PasswordRule[] = [
   { label: "One number", test: (pw) => /[0-9]/.test(pw) },
   { label: "One special character (!@#$%^&*...)", test: (pw) => /[!@#$%^&*()\\-_=+\[\]{}|;:',.<>?\/`~]/.test(pw) },
 ];
+
+interface RegisterResponse {
+  token: string;
+}
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -38,18 +43,10 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
+      const data = await apiFetch<RegisterResponse>("/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Registration failed");
-      }
-
-      const data = await res.json();
       window.localStorage.setItem("tt_token", data.token);
       window.location.href = "/";
     } catch (err) {

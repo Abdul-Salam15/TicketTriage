@@ -5,6 +5,9 @@ __pycache__/
 venv/
 .env
 .env.*
+!.env.example
+!**/.env.example
 tickets.db
+test_tickets.db
 *.log
 .DS_Store

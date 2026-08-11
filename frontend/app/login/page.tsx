@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "../lib/api";
+
+interface LoginResponse {
+  token: string;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,18 +24,10 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      const data = await apiFetch<LoginResponse>("/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Login failed");
-      }
-
-      const data = await res.json();
       window.localStorage.setItem("tt_token", data.token);
       window.location.href = "/";
     } catch (err) {

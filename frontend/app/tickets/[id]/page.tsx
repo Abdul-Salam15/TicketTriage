@@ -1,19 +1,11 @@
 'use client';
 
 import { useEffect, useState } from "react";
-
-async function getTicket(id: string, token: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${id}`, {
-    cache: "no-store",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Ticket not found");
-  return res.json();
-}
+import { apiFetch } from "../../lib/api";
+import type { Ticket } from "../../lib/types";
 
 export default function TicketDetail({ params }: { params: { id: string } }) {
-  const [ticket, setTicket] = useState<any>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -23,18 +15,9 @@ export default function TicketDetail({ params }: { params: { id: string } }) {
   const [editText, setEditText] = useState("");
 
   useEffect(() => {
-    const savedToken = typeof window !== "undefined" ? window.localStorage.getItem("tt_token") : null;
-    setToken(savedToken);
-
     async function load() {
-      if (!savedToken) {
-        setError("Please login to view this ticket.");
-        setLoading(false);
-        return;
-      }
-
       try {
-        const data = await getTicket(params.id, savedToken);
+        const data = await apiFetch<Ticket>(`/tickets/${params.id}`);
         setTicket(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load ticket");
@@ -63,42 +46,16 @@ export default function TicketDetail({ params }: { params: { id: string } }) {
     );
   }
 
-  async function parseErrorResponse(res: Response) {
-    try {
-      const data = await res.json();
-      return data?.detail || `Request failed with status ${res.status}`;
-    } catch {
-      return `Request failed with status ${res.status}`;
-    }
-  }
-
   async function regenerateReply() {
     setSaving(true);
     setError("");
     setSuccessMessage("");
 
-    if (!token) {
-      setError("Please login to regenerate the reply.");
-      setSaving(false);
-      return;
-    }
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${params.id}`, {
+      const updated = await apiFetch<Ticket>(`/tickets/${params.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ regenerate: true }),
       });
-
-      if (!res.ok) {
-        const detail = await parseErrorResponse(res);
-        throw new Error(detail || "Unable to regenerate reply");
-      }
-
-      const updated = await res.json();
       setTicket(updated);
       setEditing(false);
       setSuccessMessage("Reply regenerated successfully.");
@@ -110,27 +67,16 @@ export default function TicketDetail({ params }: { params: { id: string } }) {
   }
 
   async function saveEdit() {
-    if (!token || !editText.trim()) return;
+    if (!editText.trim()) return;
     setSaving(true);
     setError("");
     setSuccessMessage("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tickets/${params.id}`, {
+      const updated = await apiFetch<Ticket>(`/tickets/${params.id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ reply: editText.trim() }),
       });
-
-      if (!res.ok) {
-        const detail = await parseErrorResponse(res);
-        throw new Error(detail || "Unable to save reply");
-      }
-
-      const updated = await res.json();
       setTicket(updated);
       setEditing(false);
       setSuccessMessage("Reply updated successfully.");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 export default function Navbar() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -11,12 +12,11 @@ export default function Navbar() {
   }, []);
 
   async function handleLogout() {
-    const token = window.localStorage.getItem("tt_token");
-    if (token) {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+    setLoggingOut(true);
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      /* ignore logout errors */
     }
     window.localStorage.removeItem("tt_token");
     window.location.href = "/";
