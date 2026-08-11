@@ -6,9 +6,9 @@ services:
     environment:
       - LLM_PROVIDER=openai
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=sqlite:///./tickets.db
+      - DATABASE_URL=sqlite:///./data/tickets.db
     volumes:
-      - db-data:/app
+      - db-data:/app/data
     restart: unless-stopped
 
   frontend:
