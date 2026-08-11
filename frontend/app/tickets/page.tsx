@@ -89,7 +89,7 @@ export default function TicketsPage() {
       <div className="section-header">
         <div>
           <p className="eyebrow">Your ticket history</p>
-          <h1 className="page-title">All Tickets</h1>
+          <h1 className="page-title">All Tickets ({tickets.length})</h1>
         </div>
       </div>
 
