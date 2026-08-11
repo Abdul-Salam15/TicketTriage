@@ -1,13 +1,46 @@
+# Dependencies
 node_modules/
+venv/
+.venv/
+
+# Build output
 .next/
+dist/
+build/
+
+# Python
 __pycache__/
 *.pyc
-venv/
+*.pyo
+.pytest_cache/
+
+# Environment files (secrets)
 .env
 .env.*
 !.env.example
 !**/.env.example
-tickets.db
-test_tickets.db
+
+# Database files
+*.db
+*.sqlite3
+*.sqlite
+
+# Logs
 *.log
+
+# IDE / OS
 .DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Turborepo
+.turbo/
+
+# ESLint
+.eslintcache
+
+# Temporary test files
+stdout.log
+stderr.log

@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN mkdir -p /app/data && chown 1000:1000 /app/data
+
 EXPOSE 8000
 
 USER 1000:1000
