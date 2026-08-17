@@ -12,6 +12,7 @@ from collections import defaultdict
 from typing import Optional
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text, func as sa_func
 from sqlalchemy.exc import IntegrityError
@@ -208,6 +209,11 @@ Base.metadata.create_all(bind=engine)
 _migrate_db_schema()
 
 app = FastAPI(title="TicketTriage API")
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
 
 # need this otherwise the browser blocks requests from localhost:3000 -> localhost:8000
 ALLOWED_ORIGINS = [
