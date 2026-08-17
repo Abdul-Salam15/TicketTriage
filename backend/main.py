@@ -13,6 +13,7 @@ from typing import Optional
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text, func as sa_func
 from sqlalchemy.exc import IntegrityError
@@ -190,14 +191,32 @@ def _get_user_from_token(db: Session, token: str) -> Optional[User]:
     return db.query(User).filter(User.id == session.user_id).first()
 
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def _extract_token(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    authorization: Optional[str],
+) -> Optional[str]:
+    # HTTPBearer drives the Swagger "Authorize" flow; fall back to the raw
+    # header when the scheme didn't parse (auto_error=False returns None).
+    raw = credentials.credentials if credentials and credentials.credentials else (authorization or "")
+    # token_urlsafe never contains whitespace, so taking the last whitespace-
+    # separated chunk is immune to paste artifacts: "Bearer  X", "Bearer X ",
+    # "Bearer Bearer X", and leading/trailing spaces all resolve to X.
+    parts = raw.strip().split()
+    return parts[-1] if parts else None
+
+
 def get_current_user(
     db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     authorization: Optional[str] = Header(None),
 ) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+    token = _extract_token(credentials, authorization)
+    if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid authorization token")
 
-    token = authorization.split(" ", 1)[1]
     user = _get_user_from_token(db, token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -316,9 +335,9 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
 
 @app.post("/auth/logout")
 def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
+    token = _extract_token(None, authorization)
+    if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid authorization token")
-    token = authorization.split(" ", 1)[1]
     db.query(SessionToken).filter(SessionToken.token == token).delete()
     db.commit()
     return {"detail": "Logged out"}
