@@ -1,6 +1,5 @@
 import os
 import hashlib
-import os
 import random
 import secrets
 import string
@@ -9,8 +8,9 @@ import threading
 
 from collections import defaultdict
 from typing import Optional
-from fastapi import FastAPI, Depends, Header, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -128,14 +128,16 @@ def _get_user_from_token(db: Session, token: str) -> Optional[User]:
     return db.query(User).filter(User.id == session.user_id).first()
 
 
+security = HTTPBearer(auto_error=False)
+
+
 def get_current_user(
     db: Session = Depends(get_db),
-    authorization: Optional[str] = Header(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+    if not credentials:
         raise HTTPException(status_code=401, detail="Missing or invalid authorization token")
-
-    token = authorization.split(" ", 1)[1]
+    token = credentials.credentials
     user = _get_user_from_token(db, token)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -146,7 +148,7 @@ def get_current_user(
 Base.metadata.create_all(bind=engine)
 _migrate_db_schema()
 
-app = FastAPI(title="TicketTriage API")
+app = FastAPI(title="TicketTriage API", security=[{"HTTPBearer": []}])
 
 # browser origins allowed to call the API, comma-separated via CORS_ORIGINS
 ALLOWED_ORIGINS = [
@@ -193,7 +195,7 @@ async def create_ticket(ticket: TicketCreate, db: Session = Depends(get_db), use
     return db_ticket
 
 
-@app.post("/auth/register", response_model=AuthResponse, status_code=201)
+@app.post("/auth/register", response_model=AuthResponse, status_code=201, openapi_extra={"security": []})
 def register(user_auth: UserAuth, db: Session = Depends(get_db)):
     user = User(email=user_auth.email, password_hash=_hash_password(user_auth.password))
     db.add(user)
@@ -208,7 +210,7 @@ def register(user_auth: UserAuth, db: Session = Depends(get_db)):
     return AuthResponse(user=UserResponse.from_orm(user), token=token)
 
 
-@app.post("/auth/login", response_model=AuthResponse)
+@app.post("/auth/login", response_model=AuthResponse, openapi_extra={"security": []})
 def login(login_data: UserLogin, db: Session = Depends(get_db)):
     email = login_data.email.strip().lower()
     user = db.query(User).filter(User.email == email).first()
@@ -220,10 +222,13 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/logout")
-def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization or not authorization.startswith("Bearer "):
+def logout(
+    db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+):
+    if not credentials:
         raise HTTPException(status_code=401, detail="Missing or invalid authorization token")
-    token = authorization.split(" ", 1)[1]
+    token = credentials.credentials
     db.query(SessionToken).filter(SessionToken.token == token).delete()
     db.commit()
     return {"detail": "Logged out"}
