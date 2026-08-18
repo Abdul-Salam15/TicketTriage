@@ -1,4 +1,6 @@
+import os
 import hashlib
+import os
 import random
 import secrets
 import string
@@ -73,7 +75,6 @@ def _migrate_db_schema() -> None:
             if missing:
                 db.commit()
 
-    
     if "users" in table_names:
         user_columns = [column["name"] for column in inspector.get_columns("users")]
         if "email" not in user_columns:
@@ -147,16 +148,18 @@ _migrate_db_schema()
 
 app = FastAPI(title="TicketTriage API")
 
-# need this otherwise the browser blocks requests from localhost:3000 -> localhost:8000
+# browser origins allowed to call the API, comma-separated via CORS_ORIGINS
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3001",
-        "http://localhost:3001",
-    ],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -253,7 +256,7 @@ def _check_regenerate_rate_limit(ticket_id: int) -> None:
         if len(regenerate_attempts[ticket_id]) >= REGENERATE_LIMIT:
             raise HTTPException(
                 status_code=429,
-                detail=f"You can only regenerate a reply {REGENERATE_LIMIT} times per minute for this ticket.",
+                detail=f"You can only regenerate a reply {REGENERATE_LIMIT} times every 5 minutes for this ticket.",
             )
         regenerate_attempts[ticket_id].append(now)
 
@@ -293,4 +296,3 @@ def ticket_analytics(db: Session = Depends(get_db), user: User = Depends(get_cur
         priority_counts[t.priority or "Unknown"] = priority_counts.get(t.priority or "Unknown", 0) + 1
 
     return TicketAnalytics(category_counts=category_counts, priority_counts=priority_counts)
-#hi
